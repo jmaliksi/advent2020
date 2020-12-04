@@ -1,5 +1,5 @@
 use std::str::FromStr;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{prelude::*, Result, BufReader};
 use std::fmt::Debug;
 use std::convert::TryInto;
@@ -10,8 +10,48 @@ fn main() {
 
     println!("day2: {}", day2("data/day2.txt"));
     println!("day2b: {}", day2b("data/day2.txt"));
+
+    println!("day3: {}", day3("data/day3.txt", 3, 1));
+    println!("day3b: {}", day3b());
 }
 
+
+fn load_map(path: &str) -> Vec<Vec<char>> {
+    fs::read_to_string(path).expect("bluh").lines().map(|l| l.chars().collect()).collect()
+}
+
+fn day3(path: &str, slope_x: usize, slope_y: usize) -> i32 {
+    let map = load_map(path);
+    let mut toboggan = 0;
+    let mut trees = 0;
+    for (i, row) in map.iter().enumerate() {
+        if i % slope_y != 0 {
+            continue;
+        }
+        if row[toboggan % row.len()] == '#' {
+            trees += 1;
+        }
+        toboggan += slope_x;
+    }
+    return trees;
+}
+
+fn day3b() -> i64 {
+    let slopes = [
+        (1, 1),
+        (3, 1),
+        (5, 1),
+        (7, 1),
+        (1, 2),
+    ];
+    let mut trees:i64 = 1;
+    for (slope_x, slope_y) in slopes.iter() {
+        trees *= i64::from(day3("data/day3.txt", *slope_x, *slope_y));
+        println!("{}", trees);
+    }
+
+    return trees;
+}
 
 fn file_to_vec<T: FromStr>(path: &str) -> Result<Vec<T>> where <T as FromStr>::Err: Debug {
     let file = File::open(path)?;
@@ -96,7 +136,6 @@ fn day2b(path: &str) -> i32 {
         let pattern = tokens[1].chars().nth(0).unwrap();
         let test = tokens[2];
 
-        println!("{} {} {}", pos1, pos2, test);
         if (test.chars().nth(pos1-1).unwrap() == pattern) ^ (test.chars().nth(pos2-1).unwrap() == pattern) {
             num_valid += 1;
         }
