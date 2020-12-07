@@ -4,6 +4,7 @@ use std::io::{prelude::*, Result, BufReader};
 use std::fmt::Debug;
 use std::convert::TryInto;
 use regex::Regex;
+use std::collections::{HashSet, HashMap};
 
 fn main() {
     println!("day1a: {}", day1("data/day1.txt"));
@@ -20,6 +21,121 @@ fn main() {
 
     println!("day5: {}", day5("data/day5.txt"));
     println!("day5b: {}", day5b("data/day5.txt"));
+
+    println!("day6: {}", day6("data/day6.txt"));
+    println!("day6b: {}", day6b("data/day6.txt"));
+
+    println!("day7: {}", day7("data/day7.txt"));
+    println!("day7b: {}", day7b("data/day7.txt"));
+}
+
+fn contained_bags(bags: &HashMap<String, Vec<String>>, check: &str) -> u32 {
+    if check == "no other bag" {
+        return 0;
+    }
+    let bag = &check[2..];
+    let mut total:u32 = check.chars().nth(0).unwrap().to_digit(10).unwrap().into();
+    let count = total;
+
+    let children = bags.get(bag).unwrap();
+    for child in children.iter() {
+        total += count * contained_bags(bags, child);
+    }
+    return total;
+}
+
+fn day7b(path: &str) -> u32 {
+    let bags = load_bags(path);
+    return contained_bags(&bags, "1 shiny gold bag") - 1;
+}
+
+fn day7(path: &str) -> i32 {
+    let bags = load_bags(path);
+    let mut to_visit = Vec::new();
+    let mut can_contain = HashSet::new();
+    to_visit.push("shiny gold".to_string());
+    while !to_visit.is_empty() {
+        let check = to_visit.pop().unwrap();
+        for (parent, children) in bags.iter() {
+            for child in children.iter() {
+                if child.contains(&check) {
+                    to_visit.push(parent.to_string());
+                    can_contain.insert(parent.to_string());
+                }
+            }
+        }
+    }
+    return can_contain.len().try_into().unwrap();
+}
+
+fn load_bags(path: &str) -> HashMap<String, Vec<String>> {
+    let mut res = HashMap::new();
+    for line in fs::read_to_string(path).expect("bluh").lines() {
+        let cleaned = line.replace("bags", "bag").replace(".", "");
+        let tokens = cleaned.split(" contain ").into_iter().collect::<Vec<&str>>();
+        res.insert(
+            tokens[0].to_string(),
+            tokens[1].split(", ").map(|s| s.to_string()).collect::<Vec<String>>()
+        );
+    }
+    return res;
+}
+
+fn day6b(path: &str) -> i32 {
+    let answers = load_map(path);
+    let mut group = HashSet::new();
+
+    let mut yes = 0;
+
+    let mut new_group = true;
+    for answer in answers.iter() {
+        if answer.is_empty() {
+            yes += group.len();
+            group.clear();
+            new_group = true;
+        } else {
+            if new_group {
+                for i in answer.iter().cloned() {
+                    group.insert(i);
+                }
+                new_group = false;
+            } else {
+                let mut g = HashSet::new();
+                for i in answer.iter().cloned() {
+                    g.insert(i);
+                }
+                let temp = group.iter().cloned().collect::<HashSet<char>>();
+                let intx = g.intersection(&temp);
+                group.clear();
+                for i in intx {
+                    group.insert(*i);
+                }
+            }
+        }
+    }
+    yes += group.len();
+
+    return yes.try_into().unwrap();
+}
+
+fn day6(path: &str) -> i32 {
+    let answers = load_map(path);
+    let mut group = HashSet::new();
+
+    let mut yes = 0;
+
+    for answer in answers.iter() {
+        for ans in answer.iter() {
+            group.insert(ans);
+        }
+        if answer.is_empty() {
+            yes += group.len();
+            group.clear();
+        }
+    }
+    yes += group.len();
+
+    return yes.try_into().unwrap();
 }
 
 fn day5b(path: &str) -> i32 {
