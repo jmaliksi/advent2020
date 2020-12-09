@@ -1,10 +1,11 @@
 use std::str::FromStr;
 use std::fs::{self, File};
-use std::io::{prelude::*, Result, BufReader};
+use std::io::{self, prelude::*, BufReader};
 use std::fmt::Debug;
 use std::convert::TryInto;
 use regex::Regex;
 use std::collections::{HashSet, HashMap};
+use std::result::Result;
 
 fn main() {
     println!("day1a: {}", day1("data/day1.txt"));
@@ -27,6 +28,104 @@ fn main() {
 
     println!("day7: {}", day7("data/day7.txt"));
     println!("day7b: {}", day7b("data/day7.txt"));
+
+    println!("day8: {}", day8("data/day8.txt"));
+    println!("day8b: {}", day8b("data/day8.txt"));
+}
+
+fn day8b(path: &str) -> i32 {
+    let f = fs::read_to_string(path).expect("bluh");
+    let instructions = f.lines().map(|s| {
+        let tokens = s.split(" ").into_iter().collect::<Vec<&str>>();
+        let inst = tokens[0];
+        let sign = tokens[1].chars().nth(0).expect("no");
+        let mut val = tokens[1][1..].parse::<i32>().expect("oh");
+        if sign == '-' {
+            val *= -1;
+        }
+        return (inst, val);
+    }).collect::<Vec<(&str, i32)>>();
+
+    let mut accumulator = 0;
+    for (i, inst) in instructions.iter().enumerate() {
+        if inst.0 == "acc" {
+            continue;
+        }
+        let mut copy = instructions.to_vec();
+        copy[i] = (
+            match inst.0 {
+                "nop" => "jmp",
+                "jmp" => "nop",
+                _ => panic!("what"),
+            },
+            inst.1
+        );
+        let res = execute_instructions(&copy);
+        if res.is_ok() {
+            accumulator = res.unwrap();
+        }
+    }
+    return accumulator;
+}
+
+fn execute_instructions(instructions: &Vec<(&str, i32)>) -> Result<i32, &'static str> {
+    let mut accumulator = 0;
+    let mut executed = HashSet::new();
+    let mut execution_index = 0;
+    while execution_index < instructions.len() {
+        if executed.contains(&execution_index) {
+            return Err("no");
+        }
+        let line = instructions[execution_index];
+        executed.insert(execution_index);
+        match line.0 {
+            "acc" => {
+                accumulator += line.1;
+                execution_index += 1;
+            },
+            "nop" => execution_index += 1,
+            "jmp" => execution_index = ((execution_index as i32) + line.1) as usize,
+            _ => (),
+        }
+    }
+
+    Ok(accumulator)
+}
+
+fn day8(path: &str) -> i32 {
+    let mut accumulator = 0;
+    let f = fs::read_to_string(path).expect("bluh");
+    let instructions = f.lines().map(|s| {
+        let tokens = s.split(" ").into_iter().collect::<Vec<&str>>();
+        let inst = tokens[0];
+        let sign = tokens[1].chars().nth(0).expect("no");
+        let mut val = tokens[1][1..].parse::<i32>().expect("oh");
+        if sign == '-' {
+            val *= -1;
+        }
+        return (inst, val);
+    }).collect::<Vec<(&str, i32)>>();
+
+    let mut executed = HashSet::new();
+    let mut execution_index = 0;
+    while execution_index < instructions.len() {
+        if executed.contains(&execution_index) {
+            break;
+        }
+        let line = instructions[execution_index];
+        executed.insert(execution_index);
+        match line.0 {
+            "acc" => {
+                accumulator += line.1;
+                execution_index += 1;
+            },
+            "nop" => execution_index += 1,
+            "jmp" => execution_index = ((execution_index as i32) + line.1) as usize,
+            _ => (),
+        }
+    }
+
+    return accumulator;
 }
 
 fn contained_bags(bags: &HashMap<String, Vec<String>>, check: &str) -> u32 {
@@ -310,11 +409,11 @@ fn day3b() -> i64 {
     return trees;
 }
 
-fn file_to_vec<T: FromStr>(path: &str) -> Result<Vec<T>> where <T as FromStr>::Err: Debug {
+fn file_to_vec<T: FromStr>(path: &str) -> io::Result<Vec<T>> where <T as FromStr>::Err: Debug {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
 
-    Ok(reader.lines().filter_map(Result::ok).map(|r| r.parse().expect("uh oh")).collect())
+    Ok(reader.lines().filter_map(io::Result::ok).map(|r| r.parse().expect("uh oh")).collect())
 }
 
 
