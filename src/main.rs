@@ -4,7 +4,7 @@ use std::io::{self, prelude::*, BufReader};
 use std::fmt::Debug;
 use std::convert::TryInto;
 use regex::Regex;
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashSet, HashMap, VecDeque};
 use std::result::Result;
 
 fn main() {
@@ -31,6 +31,287 @@ fn main() {
 
     println!("day8: {}", day8("data/day8.txt"));
     println!("day8b: {}", day8b("data/day8.txt"));
+
+    println!("day9: {}", day9("data/day9.txt"));
+    println!("day9b: {}", day9b("data/day9.txt"));
+
+    println!("day10: {}", day10("data/day10.txt"));
+    println!("day10b: {}", day10b("data/day10.txt"));
+
+    println!("");
+    println!("day11: {}", day11("data/day11.txt"));
+    println!("day11b: {}", day11b("data/day11.txt"));
+}
+
+struct Seating {
+    seats: Vec<Vec<char>>,
+}
+
+impl Seating {
+    fn new(path: &str) -> Seating {
+        Seating {
+            seats: load_map(path),
+        }
+    }
+
+    fn copy(&self) -> Seating {
+        let mut cp = Vec::new();
+        for row in self.seats.iter() {
+            let mut new_row = Vec::new();
+            for seat in row.iter().cloned() {
+                new_row.push(seat);
+            }
+            cp.push(new_row);
+        }
+        return Seating{seats:cp};
+    }
+
+    fn is_occupied(&self, row: usize, col: usize) -> bool {
+        if row >= self.seats.len() || col >= self.seats[row].len() {
+            return false;
+        }
+        return self.seats[row][col] == '#';
+    }
+
+    fn count_occupied_neighbors(&self, row: usize, col: usize) -> u8 {
+        let mut count = 0;
+        for r in 0..3 {
+            for c in 0..3 {
+                if r == 1 && c == 1 {
+                    continue;
+                }
+                if row + r == 0 || col + c == 0 {
+                    continue
+                }
+                if self.is_occupied(row + r - 1, col + c - 1) {
+                    count += 1;
+                }
+            }
+        }
+        return count;
+    }
+
+    fn simulate(&mut self) -> bool {
+        // returns true if stable
+        let mut stable = true;
+        let frame = self.copy();
+        for (r, row) in frame.seats.iter().enumerate() {
+            for (c, seat) in row.iter().enumerate() {
+                if *seat == '.' {
+                    continue;
+                }
+                let count = frame.count_occupied_neighbors(r, c);
+                if *seat == 'L' && count == 0 {
+                    self.seats[r][c] = '#';
+                    stable = false;
+                }
+                if *seat == '#' && count >= 4 {
+                    self.seats[r][c] = 'L';
+                    stable = false;
+                }
+            }
+        }
+        return stable;
+    }
+
+    fn simulate_lines(&mut self) -> bool {
+        // returns true if stable
+        let mut stable = true;
+        let frame = self.copy();
+        for (r, row) in frame.seats.iter().enumerate() {
+            for (c, seat) in row.iter().enumerate() {
+                if *seat == '.' {
+                    continue;
+                }
+                let count = frame.count_occupied_lines(r, c);
+                if *seat == 'L' && count == 0 {
+                    self.seats[r][c] = '#';
+                    stable = false;
+                }
+                if *seat == '#' && count >= 5 {
+                    self.seats[r][c] = 'L';
+                    stable = false;
+                }
+            }
+        }
+        return stable;
+    }
+
+    fn count_occupied_lines(&self, row: usize, col: usize) -> u8 {
+        let mut count = 0;
+        for dx in &['U', 'C', 'D'] {
+            for dy in &['U', 'C', 'D'] {
+                if *dx == 'C' && *dy == 'C' {
+                    continue;
+                }
+                if self.is_line_occupied(row, col, *dx, *dy) {
+                    count += 1;
+                }
+            }
+        }
+        return count;
+    }
+
+    fn is_line_occupied(&self, row: usize, col: usize, dx: char, dy: char) -> bool {
+        let mut r = row;
+        let mut c = col;
+        loop {
+            r = match dx {
+                'U' => r + 1,
+                'C' => r,
+                'D' if r == 0 => break,
+                'D' => r - 1,
+                _ => panic!("what"),
+            };
+            c = match dy {
+                'U' => c + 1,
+                'C' => c,
+                'D' if c == 0 => break,
+                'D' => c - 1,
+                _ => panic!("what"),
+            };
+            if r >= self.seats.len() || c >= self.seats[r].len() {
+                return false;
+            }
+            match self.seats[r][c] {
+                'L' => return false,
+                '#' => return true,
+                _ => continue,
+            }
+        }
+        return false;
+    }
+
+    fn count_occupied_seats(&self) -> u32 {
+        let mut count = 0;
+        for row in self.seats.iter() {
+            for seat in row.iter() {
+                if *seat == '#' {
+                    count += 1;
+                }
+            }
+        }
+        return count;
+    }
+}
+
+fn day11(path: &str) -> u32 {
+    let mut seats = Seating::new(path);
+    loop {
+        let stable = seats.simulate();
+        if stable {
+            break;
+        }
+    }
+    return seats.count_occupied_seats();
+}
+
+fn day11b(path: &str) -> u32 {
+    let mut seats = Seating::new(path);
+    loop {
+        let stable = seats.simulate_lines();
+        if stable {
+            break;
+        }
+    }
+    return seats.count_occupied_seats();
+}
+
+fn day10b(path: &str) -> u64 {
+    let mut adapters = file_to_vec::<u32>(path).expect("bluh");
+    adapters.sort();
+    adapters.insert(0, 0);
+    let mut path_count = HashMap::new();
+    path_count.insert(adapters.last().unwrap(), 1);
+
+    for adapter in adapters.iter().rev() {
+        for jolt in &[1, 2, 3] {
+            let cur_path_count = match path_count.get(adapter) {
+                None => 0,
+                Some(v) => *v,
+            };
+            path_count.insert(
+                adapter,
+                match path_count.get(&(adapter + jolt)) {
+                    None => cur_path_count,
+                    Some(v) => cur_path_count + v,
+                }
+            );
+        }
+    }
+
+    return *path_count.get(adapters.first().unwrap()).unwrap();
+}
+
+fn day10(path: &str) -> u32 {
+    let mut adapters = file_to_vec::<u32>(path).expect("bluh");
+    adapters.sort();
+    let mut last_adapter = 0;
+    let mut ones = 0;
+    let mut threes = 1;
+    for adapter in adapters.iter().cloned() {
+        match adapter - last_adapter {
+            1 => ones += 1,
+            3 => threes += 1,
+            _ => (),
+        }
+        last_adapter = adapter;
+    }
+    return ones * threes;
+}
+
+fn day9b(path: &str) -> i64 {
+    let target = day9(path);
+    let f = fs::read_to_string(path).expect("bluh");
+    let lines = f.lines().map(|s| s.parse::<i64>().expect("no")).collect::<Vec<_>>();
+    let mut contiguous = Vec::<i64>::new();
+
+    for i in 0..lines.len() {
+        for n in lines[i..].iter().cloned() {
+            let sum:i64 = contiguous.iter().cloned().sum();
+            if sum == target {
+                contiguous.sort();
+                return contiguous.first().unwrap() + contiguous.last().unwrap();
+            }
+            if sum > target {
+                contiguous.clear();
+                break;
+            }
+            contiguous.push(n);
+        }
+    }
+    return -1;
+}
+
+
+
+fn day9(path: &str) -> i64 {
+    let f = fs::read_to_string(path).expect("bluh");
+    let lines = f.lines().map(|s| s.parse::<i64>().expect("no")).collect::<Vec<_>>();
+    let mut q = VecDeque::new();
+    for n in lines[..25].iter() {
+        q.push_front(n);
+    }
+    for target in lines[25..].iter() {
+        let mut found = false;
+        for a in q.iter() {
+            for b in q.iter() {
+                if (*a) + (*b) == (*target) {
+                    found = true;
+                    break;
+                }
+            }
+            if found {
+                break;
+            }
+        }
+        if !found {
+            return *target;
+        }
+        q.push_front(target);
+        q.truncate(25);
+    }
+    return 0;
 }
 
 fn day8b(path: &str) -> i32 {
